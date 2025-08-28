@@ -4,13 +4,9 @@ import org.example.domain.User;
 import org.example.service.UserService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-/**
- * Демонстрационный запуск приложения без тестов.
- * Показывает работу {@link UserService} в консольном режиме.
- */
 public class Main {
     public static void main(String[] args) {
-        try (var ctx = new AnnotationConfigApplicationContext(AppConfig.class)) {
+        try (var ctx = new AnnotationConfigApplicationContext("org.example")) {
             var svc = ctx.getBean(UserService.class);
 
             User a = svc.createUser("alice");

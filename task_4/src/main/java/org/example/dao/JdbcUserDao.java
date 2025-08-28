@@ -1,108 +1,161 @@
 package org.example.dao;
 
 import org.example.domain.User;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.util.StreamUtils;
+import org.springframework.stereotype.Repository;
 
-import java.nio.charset.StandardCharsets;
+import javax.sql.DataSource;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Реализация интерфейса {@link UserDao}, использующая JDBC-шаблон Spring.
+ * Реализация {@link UserDao}, работающая напрямую с PostgreSQL через JDBC.
  * <p>
- * SQL-запросы загружаются из файлов ресурсов, расположенных в {@code src/main/resources/sql/users}.
+ * Внутри содержит небольшие утилиты для выполнения SQL-запросов,
+ * чтобы уменьшить дублирование кода при работе с {@link PreparedStatement}.
  */
+@Repository
 public class JdbcUserDao implements UserDao {
-    private final NamedParameterJdbcTemplate jdbc;
+    private final DataSource dataSource;
 
     /**
-     * Конструктор, принимающий {@link NamedParameterJdbcTemplate}.
+     * Конструктор с внедрением источника соединений.
      *
-     * @param jdbc JDBC-шаблон с поддержкой именованных параметров
+     * @param dataSource пул соединений к БД
      */
-    public JdbcUserDao(NamedParameterJdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    public JdbcUserDao(DataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
     /**
-     * Загружает SQL-запрос из файла ресурсов по имени.
-     * Файл ищется в папке {@code sql/users/}.
+     * Универсальный метод для выполнения SELECT-запросов, возвращающих результат.
      *
-     * @param name имя SQL-файла без расширения
-     * @return содержимое SQL-запроса в виде строки
-     * @throws RuntimeException если файл не найден или не может быть прочитан
+     * @param sql   текст SQL-запроса
+     * @param bind  функция для привязки параметров к {@link PreparedStatement}
+     * @param mapper функция для обработки {@link ResultSet}
+     * @param <T> тип результата
+     * @return результат, полученный от {@code mapper}
      */
-    private String sql(String name) {
-        try (var in = new ClassPathResource("sql/users/" + name + ".sql").getInputStream()) {
-            return StreamUtils.copyToString(in, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            throw new RuntimeException("SQL not found: " + name, e);
+    private <T> T queryOne(String sql,
+                           SqlConsumer<PreparedStatement> bind,
+                           SqlFunction<ResultSet, T> mapper) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            if (bind != null) bind.accept(statement);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return mapper.apply(resultSet);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при выполнении запроса: " + sql, e);
         }
     }
 
     /**
-     * Создаёт нового пользователя в базе данных.
+     * Универсальный метод для выполнения DML-запросов (INSERT/UPDATE/DELETE).
+     *
+     * @param sql  текст SQL-запроса
+     * @param bind функция для привязки параметров к {@link PreparedStatement}
+     * @return количество затронутых строк
+     */
+    private int execUpdate(String sql, SqlConsumer<PreparedStatement> bind) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            if (bind != null) bind.accept(statement);
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при выполнении обновления: " + sql, e);
+        }
+    }
+
+    @FunctionalInterface
+    private interface SqlConsumer<T> { void accept(T t) throws SQLException; }
+
+    @FunctionalInterface
+    private interface SqlFunction<T, R> { R apply(T t) throws SQLException; }
+
+
+    /**
+     * Создаёт нового пользователя в базе.
      *
      * @param username имя пользователя
-     * @return объект {@link User} с заполненным ID
+     * @return объект {@link User} с присвоенным ID
      */
     @Override
     public User create(String username) {
-        var p = new MapSqlParameterSource().addValue("username", username);
-        Long id = jdbc.queryForObject(sql("insert"), p, Long.class);
+        String sql = "INSERT INTO app_data.users(username) VALUES (?) RETURNING id";
+        Long id = queryOne(sql,
+                st -> st.setString(1, username),
+                rs -> {
+                    if (rs.next()) return rs.getLong(1);
+                    throw new SQLException("ID не был возвращён при вставке");
+                });
         return new User(id, username);
     }
 
     /**
-     * Ищет пользователя по ID.
+     * Находит пользователя по идентификатору.
      *
-     * @param id идентификатор пользователя
-     * @return {@link Optional} с пользователем, если найден
+     * @param id идентификатор
+     * @return {@link Optional} с найденным пользователем или пустой, если не найден
      */
     @Override
     public Optional<User> findById(Long id) {
-        var p = new MapSqlParameterSource().addValue("id", id);
-        var list = jdbc.query(sql("select_by_id"), p,
-                (rs, rn) -> new User(rs.getLong("id"), rs.getString("username")));
-        return list.stream().findFirst();
+        String sql = "SELECT id, username FROM app_data.users WHERE id = ?";
+        return queryOne(sql,
+                st -> st.setLong(1, id),
+                rs -> {
+                    if (rs.next()) {
+                        return Optional.of(new User(rs.getLong("id"), rs.getString("username")));
+                    }
+                    return Optional.empty();
+                });
     }
 
     /**
-     * Возвращает список всех пользователей из таблицы.
+     * Возвращает список всех пользователей.
      *
-     * @return список пользователей
+     * @return список {@link User}
      */
     @Override
     public List<User> findAll() {
-        return jdbc.query(sql("select_all"), new MapSqlParameterSource(),
-                (rs, rn) -> new User(rs.getLong("id"), rs.getString("username")));
+        String sql = "SELECT id, username FROM app_data.users ORDER BY id";
+        return queryOne(sql,
+                null,
+                rs -> {
+                    List<User> users = new ArrayList<>();
+                    while (rs.next()) {
+                        users.add(new User(rs.getLong("id"), rs.getString("username")));
+                    }
+                    return users;
+                });
     }
 
     /**
-     * Обновляет имя пользователя по его ID.
+     * Обновляет имя пользователя.
      *
-     * @param id         идентификатор пользователя
+     * @param id идентификатор
      * @param newUsername новое имя
      * @return {@code true}, если обновление прошло успешно
      */
     @Override
     public boolean updateUsername(Long id, String newUsername) {
-        var p = new MapSqlParameterSource().addValue("id", id).addValue("username", newUsername);
-        return jdbc.update(sql("update_username"), p) > 0;
+        String sql = "UPDATE app_data.users SET username = ? WHERE id = ?";
+        return execUpdate(sql, st -> {
+            st.setString(1, newUsername);
+            st.setLong(2, id);
+        }) > 0;
     }
 
     /**
-     * Удаляет пользователя по ID.
+     * Удаляет пользователя.
      *
-     * @param id идентификатор пользователя
+     * @param id идентификатор
      * @return {@code true}, если удаление прошло успешно
      */
     @Override
     public boolean delete(Long id) {
-        var p = new MapSqlParameterSource().addValue("id", id);
-        return jdbc.update(sql("delete_by_id"), p) > 0;
+        String sql = "DELETE FROM app_data.users WHERE id = ?";
+        return execUpdate(sql, st -> st.setLong(1, id)) > 0;
     }
 }

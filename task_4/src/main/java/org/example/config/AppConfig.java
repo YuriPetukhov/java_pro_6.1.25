@@ -3,16 +3,24 @@ package org.example.config;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
+
 import javax.sql.DataSource;
 
 /**
- * Базовая конфигурация
+ * Конфигурация источника данных (HikariCP).
  */
 @Configuration
-@ComponentScan(basePackages = "org.example")
 @PropertySource("classpath:application.properties")
 public class AppConfig {
+
+    @Bean
+    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+        return new PropertySourcesPlaceholderConfigurer();
+    }
 
     @Value("${jdbc.url}")
     private String jdbcUrl;

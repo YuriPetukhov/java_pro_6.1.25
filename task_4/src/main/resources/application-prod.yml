@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: app_data
+
+  flyway:
+    enabled: true
+    schemas: app_data
+    locations: classpath:db/migration/prod

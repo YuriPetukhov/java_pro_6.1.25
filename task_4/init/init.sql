@@ -1,6 +1,13 @@
-CREATE ROLE app_user WITH LOGIN PASSWORD 'app_password';
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+    CREATE ROLE app_user WITH LOGIN PASSWORD 'app_password';
+  END IF;
+END $$;
 
 CREATE SCHEMA IF NOT EXISTS app_data AUTHORIZATION app_user;
+CREATE SCHEMA IF NOT EXISTS app_demo AUTHORIZATION app_user;
 
 GRANT ALL PRIVILEGES ON DATABASE task4db TO app_user;
-GRANT ALL ON SCHEMA app_data TO app_user;
+GRANT USAGE, CREATE ON SCHEMA app_data TO app_user;
+GRANT USAGE, CREATE ON SCHEMA app_demo TO app_user;

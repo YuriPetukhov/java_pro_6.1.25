@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        default_schema: app_demo
+        format_sql: true
+
+  flyway:
+    enabled: true
+    schemas: app_demo
+    locations: classpath:db/migration/demo

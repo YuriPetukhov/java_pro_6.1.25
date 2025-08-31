@@ -21,16 +21,16 @@ public class DemoDataRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        User a = service.createUser("alice");
-        User b = service.createUser("bob");
+        User user1 = service.createUser("alice");
+        User user2 = service.createUser("bob");
 
-        System.out.println("Created or existing: " + a + " / " + b);
+        System.out.println("Created or existing: " + user1 + " / " + user2);
         System.out.println("All: " + service.getAll());
 
-        service.rename(b.getId(), "bob2");
-        System.out.println("Get b: " + service.getUser(b.getId()));
+        service.rename(user2.getId(), "bob2");
+        System.out.println("Get user2: " + service.getUser(user2.getId()));
 
-        service.delete(a.getId());
+        service.delete(user1.getId());
         System.out.println("All after delete: " + service.getAll());
     }
 }

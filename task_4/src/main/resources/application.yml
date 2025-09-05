@@ -5,11 +5,22 @@ spring:
     password: app_password
 
   jpa:
-    show-sql: true
+    open-in-view: false
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
 
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 200
+        one-indexed-parameters: false
+      sort:
+        sort-parameter: sort
+
 logging:
   level:
     org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace

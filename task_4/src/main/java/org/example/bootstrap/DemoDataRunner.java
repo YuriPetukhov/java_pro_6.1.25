@@ -1,36 +1,56 @@
 package org.example.bootstrap;
 
+import lombok.RequiredArgsConstructor;
+import org.example.dto.CreateProductDTO;
+import org.example.dto.ProductDto;
 import org.example.entity.User;
+import org.example.enums.ProductType;
+import org.example.service.ProductService;
 import org.example.service.UserService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
-/**
- * Демонстрационный раннер CRUD-операций.
- */
+import java.math.BigDecimal;
+
 @Component
 @Profile("demo")
+@RequiredArgsConstructor
 public class DemoDataRunner implements CommandLineRunner {
 
-    private final UserService service;
-
-    public DemoDataRunner(UserService service) {
-        this.service = service;
-    }
+    private final UserService userService;
+    private final ProductService productService;
 
     @Override
     public void run(String... args) {
-        User user1 = service.createUser("alice");
-        User user2 = service.createUser("bob");
+        System.out.println("\n=== DEMO START ===");
 
-        System.out.println("Created or existing: " + user1 + " / " + user2);
-        System.out.println("All: " + service.getAll());
+        User alice = userService.createUser("alice");
+        User bob   = userService.createUser("bob");
+        System.out.println("Users: " + userService.getAll());
 
-        service.rename(user2.getId(), "bob2");
-        System.out.println("Get user2: " + service.getUser(user2.getId()));
+        productService.createProduct(new CreateProductDTO(
+                alice.getId(), "AL-001", new BigDecimal("500.00"), ProductType.ACCOUNT));
+        productService.createProduct(new CreateProductDTO(
+                alice.getId(), "AL-002", new BigDecimal("1500.00"), ProductType.CARD));
+        productService.createProduct(new CreateProductDTO(
+                bob.getId(),   "BO-001", new BigDecimal("200.00"), ProductType.ACCOUNT));
 
-        service.delete(user1.getId());
-        System.out.println("All after delete: " + service.getAll());
+        Pageable pageReq = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "id"));
+
+        Page<ProductDto> aliceProducts = productService.getAllProductsByUserId(alice.getId(), pageReq);
+        Page<ProductDto> bobProducts   = productService.getAllProductsByUserId(bob.getId(), pageReq);
+
+        System.out.println("\n-- Products of alice --");
+        aliceProducts.forEach(System.out::println);
+
+        System.out.println("\n-- Products of bob --");
+        bobProducts.forEach(System.out::println);
+
+        System.out.println("\n=== DEMO END ===\n");
     }
 }

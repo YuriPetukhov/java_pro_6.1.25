@@ -9,14 +9,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
 
 /**
  * REST-контроллер для управления продуктами.
  * Предоставляет методы создания и получения продуктов.
  */
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("${api.prefix}/products")
 @RequiredArgsConstructor
 public class ProductController {
 
@@ -24,17 +26,22 @@ public class ProductController {
 
     /**
      * Создает новый продукт.
+     * В заголовке Location указывается ссылка на созданный ресурс.
      *
      * @param newProduct DTO с данными для создания продукта
-     * @param uri        UriComponentsBuilder для построения ссылки на созданный ресурс
      * @return ResponseEntity с данными созданного продукта и заголовком Location
      */
     @PostMapping
     public ResponseEntity<ProductDto> createProduct(
-            @Valid @RequestBody CreateProductDTO newProduct,
-            UriComponentsBuilder uri) {
+            @Valid @RequestBody CreateProductDTO newProduct) {
         ProductDto dto = productService.createProduct(newProduct);
-        var location = uri.path("/api/products/{id}").buildAndExpand(dto.id()).toUri();
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(dto.id())
+                .toUri();
+
         return ResponseEntity.created(location).body(dto);
     }
 

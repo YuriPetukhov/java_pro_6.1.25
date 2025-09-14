@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/task4db
+    username: app_user
+    password: app_password
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 200
+        one-indexed-parameters: false
+      sort:
+        sort-parameter: sort
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
+
+api:
+  prefix: /api/v1
+
+server:
+  port: 8081

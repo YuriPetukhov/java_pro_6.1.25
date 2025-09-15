@@ -3,6 +3,7 @@ package org.example.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.example.error.ApiError;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -14,35 +15,27 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.util.List;
 
 /**
- * Базовый глобальный обработчик исключений для REST-контроллеров.
- * <p>
- * Перехватывает распространённые ошибки и преобразует их в унифицированный формат {@link ApiError},
- * который возвращается клиенту с корректным HTTP-статусом.
+ * Обработчик исключений product-service.
+ * Возвращает унифицированный формат {@link ApiError}.
  */
 @RestControllerAdvice
-public class BaseGlobalExceptionHandler {
+public class ProductExceptionHandler {
 
-    /**
-     * 404 Not Found: сущность не найдена.
-     */
+    /** Сущность не найдена. */
     @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiError notFound(NotFoundException ex, HttpServletRequest req) {
         return ApiError.notFound(ex.getMessage(), req.getRequestURI());
     }
 
-    /**
-     * 400 Bad Request: некорректные аргументы (бизнес-валидация, логика).
-     */
+    /** Некорректные аргументы бизнес-логики. */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiError badArg(IllegalArgumentException ex, HttpServletRequest req) {
         return ApiError.badRequest(ex.getMessage(), req.getRequestURI());
     }
 
-    /**
-     * 400 Bad Request: ошибки валидации тела запроса (@Valid на @RequestBody).
-     */
+    /** Валидация тела запроса (@Valid на @RequestBody). */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiError beanValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
@@ -52,13 +45,7 @@ public class BaseGlobalExceptionHandler {
         return ApiError.validationFailed(req.getRequestURI(), v);
     }
 
-    /**
-     * 400 Bad Request: ошибки валидации параметров запроса и путевых переменных.
-     * <ul>
-     *     <li>{@link BindException} — ошибки биндинга параметров</li>
-     *     <li>{@link ConstraintViolationException} — нарушения @Valid в параметрах</li>
-     * </ul>
-     */
+    /** Валидация параметров запроса и path-переменных. */
     @ExceptionHandler({ BindException.class, ConstraintViolationException.class })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiError paramValidation(Exception ex, HttpServletRequest req) {
@@ -73,14 +60,7 @@ public class BaseGlobalExceptionHandler {
         return ApiError.validationFailed(req.getRequestURI(), v);
     }
 
-    /**
-     * 400 Bad Request: ошибки синтаксиса запроса.
-     * <ul>
-     *     <li>{@link HttpMessageNotReadableException} — невалидный JSON</li>
-     *     <li>{@link MissingServletRequestParameterException} — отсутствует обязательный параметр</li>
-     *     <li>{@link MethodArgumentTypeMismatchException} — несовместимый тип параметра</li>
-     * </ul>
-     */
+    /** Синтаксические ошибки запроса: невалидный JSON, нет обязательного параметра, несовместимый тип. */
     @ExceptionHandler({
             HttpMessageNotReadableException.class,
             MissingServletRequestParameterException.class,
@@ -92,11 +72,15 @@ public class BaseGlobalExceptionHandler {
         return ApiError.badRequest((msg == null || msg.isBlank()) ? ex.toString() : msg, req.getRequestURI());
     }
 
-    /**
-     * 500 Internal Server Error: непредвидённые ошибки.
-     * <p>
-     * Клиенту возвращается общий ответ без деталей внутренней ошибки.
-     */
+    /** Конфликты целостности данных (уникальные ключи, FK и т.д.). */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError dataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        return ApiError.conflict("Data integrity violation: " + msg, req.getRequestURI());
+    }
+
+    /** Прочие непредвидённые ошибки. */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiError unexpected(Exception ex, HttpServletRequest req) {

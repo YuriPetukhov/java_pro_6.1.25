@@ -1,25 +1,19 @@
 package org.example.dto;
 
-import org.springframework.data.domain.Page;
-
 import java.util.List;
 
 /**
- * Унифицированный DTO для постраничного ответа REST API.
+ * Унифицированный DTO ответа с постраничными данными.
  * <p>
- * Используется вместо {@link org.springframework.data.domain.Page},
- * так как сериализация {@code PageImpl} даёт нестабильную структуру JSON.
- * <br>
- * Этот класс предоставляет стабильный контракт для клиентов (в данном случае, платежного сервиса).
  *
- * @param content       содержимое текущей страницы
- * @param page          номер текущей страницы (0-based)
- * @param size          размер страницы (количество элементов на странице)
- * @param totalElements общее количество элементов
- * @param totalPages    общее количество страниц
- * @param first         признак первой страницы
- * @param last          признак последней страницы
- * @param <T>           тип элементов содержимого
+ * @param <T> тип элементов в списке
+ * @param content список элементов текущей страницы
+ * @param page номер страницы (отсчёт с 0)
+ * @param size размер страницы (число элементов на странице)
+ * @param totalElements общее количество элементов во всём наборе
+ * @param totalPages общее количество страниц
+ * @param first признак, что это первая страница
+ * @param last признак, что это последняя страница
  */
 public record PageResponse<T>(
         List<T> content,
@@ -29,23 +23,4 @@ public record PageResponse<T>(
         int totalPages,
         boolean first,
         boolean last
-) {
-    /**
-     * Преобразует {@link Page} из Spring Data в стабильный {@link PageResponse}.
-     *
-     * @param p объект {@code Page<T>} из Spring Data
-     * @param <T> тип элементов
-     * @return новый {@code PageResponse<T>} с извлечёнными данными
-     */
-    public static <T> PageResponse<T> of(Page<T> p) {
-        return new PageResponse<>(
-                p.getContent(),
-                p.getNumber(),
-                p.getSize(),
-                p.getTotalElements(),
-                p.getTotalPages(),
-                p.isFirst(),
-                p.isLast()
-        );
-    }
-}
+) { }

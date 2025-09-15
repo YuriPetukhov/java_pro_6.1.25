@@ -1,91 +1,52 @@
 package org.example.integrations;
 
-import org.example.error.ApiError;
-import org.example.exception.NotFoundException;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
-import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Базовый класс для REST-клиентов.
+ * Базовый вспомогательный класс для REST-клиентов.
  * <p>
- * Инкапсулирует работу с {@link RestTemplate}, обрабатывает исключения
- * и преобразует ошибки удалённых сервисов в доменные исключения:
- * <ul>
- *     <li>{@link NotFoundException} — для 404 Not Found</li>
- *     <li>{@link IllegalArgumentException} — для остальных кодов ошибок</li>
- * </ul>
- * Также умеет читать {@link ApiError} из тела ответа, если сервис возвращает
- * ошибки в унифицированном формате.
+ * Содержит минимальные обёртки над {@link RestTemplate} для выполнения GET-запросов.
+ * Обработка ошибок централизована в {@code ApiErrorHandler}, который должен быть
+ * установлен через {@code RestTemplate.setErrorHandler(...)} в конфигурации.
  */
 public abstract class RestClientSupport {
 
-    /** Экземпляр {@link RestTemplate}, через который выполняются HTTP-запросы. */
+    /** Клиент HTTP-запросов, настраивается извне (таймауты, error handler и т.д.). */
     protected final RestTemplate rest;
 
+    /**
+     * @param rest настроенный {@link RestTemplate}
+     */
     protected RestClientSupport(RestTemplate rest) {
         this.rest = rest;
     }
 
     /**
-     * Выполняет GET-запрос и десериализует ответ в указанный тип.
+     * Выполняет GET-запрос и десериализует ответ в указанный простой тип.
      *
      * @param url  полный URL запроса
-     * @param type класс ожидаемого ответа
+     * @param type класс результата
      * @param <T>  тип данных в ответе
-     * @return десериализованный объект
-     * @throws NotFoundException        если ответ 404
-     * @throws IllegalArgumentException если другой код ошибки
+     * @return десериализованное тело ответа (может быть {@code null}, если сервис так ответил)
      */
-    protected <T> T getForObject(String url, Class<T> type) {
-        try {
-            return rest.getForObject(url, type);
-        } catch (HttpStatusCodeException e) {
-            throw mapException(e, url);
-        }
+    protected <T> T get(String url, Class<T> type) {
+        ResponseEntity<T> resp = rest.exchange(url, HttpMethod.GET, null, type);
+        return resp.getBody();
     }
 
     /**
-     * Выполняет HTTP-запрос (обычно GET) и десериализует ответ в обобщённый тип.
+     * Выполняет GET-запрос и десериализует ответ в обобщённый тип (List/Map и т.п.).
      *
      * @param url     полный URL запроса
-     * @param method  HTTP-метод
-     * @param typeRef тип результата с поддержкой generic-параметров
+     * @param typeRef ссылка на обобщённый тип результата
      * @param <T>     тип данных в ответе
-     * @return десериализованный объект
-     * @throws NotFoundException        если ответ 404
-     * @throws IllegalArgumentException если другой код ошибки
+     * @return десериализованное тело ответа (может быть {@code null}, если сервис так ответил)
      */
-    protected <T> T exchange(String url, HttpMethod method, ParameterizedTypeReference<T> typeRef) {
-        try {
-            ResponseEntity<T> resp = rest.exchange(url, method, null, typeRef);
-            return resp.getBody();
-        } catch (HttpStatusCodeException e) {
-            throw mapException(e, url);
-        }
-    }
-
-    /**
-     * Преобразует HTTP-исключение в доменное исключение.
-     */
-    private RuntimeException mapException(HttpStatusCodeException e, String url) {
-        ApiError api = tryReadApiError(e);
-        String msg = api != null ? api.message() : e.getResponseBodyAsString();
-        if (e.getStatusCode().value() == 404) {
-            return new NotFoundException(msg != null ? msg : ("Resource not found: " + url));
-        }
-        return new IllegalArgumentException(msg != null ? msg : e.getStatusText());
-    }
-
-    /**
-     * Пробует десериализовать тело ошибки в {@link ApiError}.
-     */
-    private ApiError tryReadApiError(HttpStatusCodeException e) {
-        try {
-            return e.getResponseBodyAs(ApiError.class);
-        } catch (Exception ignore) {
-            return null;
-        }
+    protected <T> T get(String url, ParameterizedTypeReference<T> typeRef) {
+        ResponseEntity<T> resp = rest.exchange(url, HttpMethod.GET, null, typeRef);
+        return resp.getBody();
     }
 }

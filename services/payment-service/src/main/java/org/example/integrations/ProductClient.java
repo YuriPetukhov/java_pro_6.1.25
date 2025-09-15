@@ -4,7 +4,6 @@ import org.example.dto.PageResponse;
 import org.example.dto.ProductDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -40,7 +39,7 @@ public class ProductClient extends RestClientSupport {
      */
     public ProductDto getProductById(Long id) {
         String url = baseUrl + "/products/" + id;
-        return getForObject(url, ProductDto.class);
+        return get(url, ProductDto.class);
     }
 
     /**
@@ -57,6 +56,6 @@ public class ProductClient extends RestClientSupport {
      */
     public PageResponse<ProductDto> getProductsByUser(Long userId, Integer page, Integer size, String sort) {
         String url = UrlBuilderUtil.buildPagedUrl(baseUrl, "/products", userId, page, size, sort);
-        return exchange(url, HttpMethod.GET, new ParameterizedTypeReference<PageResponse<ProductDto>>() {});
+        return get(url, new ParameterizedTypeReference<PageResponse<ProductDto>>() {});
     }
 }

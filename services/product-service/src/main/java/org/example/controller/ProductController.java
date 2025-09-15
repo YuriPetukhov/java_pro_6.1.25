@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.dto.CreateProductDTO;
 import org.example.dto.PageResponse;
 import org.example.dto.ProductDto;
+import org.example.mapper.PageMappers;
 import org.example.service.ProductService;
 import org.springdoc.core.annotations.ParameterObject;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ import java.net.URI;
 public class ProductController {
 
     private final ProductService productService;
+    private final PageMappers pageMappers;
 
     /**
      * Создает новый продукт.
@@ -77,7 +79,7 @@ public class ProductController {
             @Parameter(description = "Идентификатор пользователя") @RequestParam Long userId,
             @ParameterObject Pageable pageable
     ) {
-        return PageResponse.of(productService.getAllProductsByUserId(userId, pageable));
+        return pageMappers.toResponse(productService.getAllProductsByUserId(userId, pageable));
     }
 
     /**

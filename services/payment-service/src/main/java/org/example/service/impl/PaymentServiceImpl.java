@@ -10,6 +10,8 @@ import org.example.integrations.ProductClient;
 import org.example.service.PaymentService;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 /**
  * Реализация сервиса платежей.
  * <p>
@@ -68,7 +70,7 @@ public class PaymentServiceImpl implements PaymentService {
         ProductDto product = productClient.getProductById(req.productId());
 
         // Проверка принадлежности продукта пользователю
-        if (product.userId() != req.userId()) {
+        if (!Objects.equals(product.userId(), req.userId())) {
             return new PaymentResponse(req.productId(), null,
                     PaymentStatus.DECLINED, "Product doesn't belong to the user");
         }
